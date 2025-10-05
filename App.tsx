@@ -14,6 +14,8 @@ import GestureOverlay from './components/GestureOverlay';
 import BrewFeedbackModal from './components/BrewFeedbackModal';
 import OnboardingScreen from './components/OnboardingScreen';
 import TimerWithGestures from './components/TimerWithGestures';
+import EnhancedTimer from './components/EnhancedTimer';
+import QuickBrewWidget from './components/QuickBrewWidget';
 
 // Load components directly to fix white screen issue
 import CameraScreen from './components/CameraScreen';
@@ -697,99 +699,45 @@ function AppContent() {
   }
 
   if (showTimer && selectedTea) {
-    const progress = selectedTea.baseScheduleSec[currentSteep] 
-      ? (selectedTea.baseScheduleSec[currentSteep] - timerSeconds) / selectedTea.baseScheduleSec[currentSteep] 
-      : 0;
-
     return (
       <GestureHandlerRootView style={styles.container}>
         <GestureDetector gesture={swipeDownGesture}>
           <View style={[
-            styles.timerContainer, 
+            styles.timerContainer,
             { backgroundColor: theme.colors.background },
-            isRunning && { 
-              backgroundColor: theme.colors.accent + '15', // steepingAmber with 15% opacity
+            isRunning && {
+              backgroundColor: theme.colors.accent + '15',
               borderWidth: 2,
-              borderColor: theme.colors.accent + '40' // steepingAmber with 40% opacity
+              borderColor: theme.colors.accent + '40'
             }
           ]}>
-            {/* Background wave disabled to prevent crashes */}
             <Pressable onPress={backToHome} style={styles.backButton}>
               <Text style={[styles.backText, { color: theme.colors.primary }]}>← Back</Text>
             </Pressable>
-          
-          <Text style={[styles.timerTitle, { color: theme.colors.text }]}>{selectedTea.name}</Text>
-          <Text style={[styles.timerTemp, { color: theme.colors.textSecondary }]}>Vessel: {vesselMl}ml • Temp: {tempC}°C</Text>
-          
-          <View style={styles.hourglassContainer}>
-            {/* Story 1.2.2: Living tea metaphor animation */}
-            <LayeredTeaAnimation
-              width={220}
-              height={200}
-              temperature={tempC}
-              brewingTime={selectedTea.baseScheduleSec[currentSteep] - timerSeconds}
-              teaType={selectedTea.type}
-              isRunning={isRunning}
-              onGesture={(gestureType, value) => {
-                switch (gestureType) {
-                  case 'tap':
-                    toggleStartPause();
-                    break;
-                  case 'leftEdge':
-                    if (value) addTime(value);
-                    break;
-                  case 'rightEdge':
-                    if (value) addTime(value);
-                    break;
-                  case 'doubleTap':
-                    resetTimer();
-                    break;
-                  case 'longPress':
-                    // Optional: Show timer settings or next steep
-                    break;
-                }
-              }}
-            />
-            {/* TimerWithGestures hidden - gestures now handled by LayeredTeaAnimation */}
-            
-            {/* Gesture overlay for interactions */}
-            <GestureOverlay 
-              vesselMl={vesselMl} 
-              tempC={tempC}
-              onChange={(vessel, temp) => {
-                setVesselMl(vessel);
-                setTempC(temp);
-              }}
-              onEnd={async (vessel, temp) => {
-                if (selectedTea) {
-                  await setTeaPrefs(selectedTea.id, { vesselMl: vessel, tempC: temp });
-                }
-              }}
-            />
-          </View>
-          
-          <Text style={[styles.steepInfo, { color: theme.colors.textSecondary }]}>Steep {currentSteep + 1} of {selectedTea.baseScheduleSec.length}</Text>
-          
-          <View style={styles.controls}>
-            {!isRunning ? (
-              <Button title="Start Steep" variant="primary" onPress={startTimer} />
-            ) : (
-              <Button title="Pause" variant="secondary" onPress={pauseTimer} />
-            )}
-            {currentSteep < selectedTea.baseScheduleSec.length - 1 && (
-              <Button title="Next Steep" variant="secondary" onPress={nextSteep} />
-            )}
-          </View>
 
-          <View style={styles.adjustControls}>
-            <Button title="-10ml" variant="secondary" size="sm" onPress={() => adjustVessel(-10)} />
-            <Button title="+10ml" variant="secondary" size="sm" onPress={() => adjustVessel(10)} />
-            <Button title="-5°C" variant="secondary" size="sm" onPress={() => adjustTemp(-5)} />
-            <Button title="+5°C" variant="secondary" size="sm" onPress={() => adjustTemp(5)} />
-          </View>
+            <EnhancedTimer
+              seconds={timerSeconds}
+              totalSeconds={selectedTea.baseScheduleSec[currentSteep]}
+              isRunning={isRunning}
+              currentSteep={currentSteep}
+              totalSteeps={selectedTea.baseScheduleSec.length}
+              teaName={selectedTea.name}
+              temperature={tempC}
+              onToggle={toggleStartPause}
+              onReset={resetTimer}
+              onAdjustTime={addTime}
+              onNextSteep={nextSteep}
+              onPrevSteep={() => {
+                if (currentSteep > 0) {
+                  setCurrentSteep(currentSteep - 1);
+                  setTimerSeconds(selectedTea.baseScheduleSec[currentSteep - 1]);
+                  setIsRunning(false);
+                }
+              }}
+            />
           </View>
         </GestureDetector>
-        
+
         <StatusBar style="light" />
       </GestureHandlerRootView>
     );
@@ -827,6 +775,14 @@ function AppContent() {
             />
           </View>
         }
+      />
+
+      {/* Quick Brew Widget for fast tea selection */}
+      <QuickBrewWidget
+        onStartBrewing={handleTeaSelect}
+        recentTeas={last.slice(0, 3).map(l => {
+          return tiles.concat(userTeas).find(t => t.id === l.teaId);
+        }).filter(Boolean) as TeaProfile[]}
       />
 
       <View style={styles.section}>

@@ -116,8 +116,10 @@ function AppContent() {
 }
 
 export default function App() {
+  const [currentTheme, setCurrentTheme] = useState(ThemeManager.getInstance().getCurrentTheme());
+
   return (
-    <ThemeContext.Provider value={ThemeManager.getInstance()}>
+    <ThemeContext.Provider value={currentTheme}>
       <AppContent />
     </ThemeContext.Provider>
   );

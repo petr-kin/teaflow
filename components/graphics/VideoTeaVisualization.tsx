@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    background: 'linear-gradient(to top, transparent 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.2) 100%)',
+    backgroundColor: 'rgba(255,255,255,0.1)', // React Native doesn't support CSS gradients
     borderRadius: 12,
     zIndex: 3,
   },

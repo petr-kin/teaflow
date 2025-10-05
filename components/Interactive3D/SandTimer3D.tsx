@@ -106,12 +106,14 @@ function SandParticles({ progress, isRunning }: { progress: number; isRunning: b
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
+          args={[positions, 3]}
           count={particleCount}
           array={positions}
           itemSize={3}
         />
         <bufferAttribute
           attach="attributes-color"
+          args={[colors, 3]}
           count={particleCount}
           array={colors}
           itemSize={3}
@@ -226,7 +228,7 @@ export default function SandTimer3D({ progress, duration, isRunning }: SandTimer
         <pointLight position={[-2, 2, 2]} intensity={0.4} color="#ffd700" />
         
         {/* Environment */}
-        <Environment preset="apartment" intensity={0.3} />
+        <Environment preset="apartment" />
         <ContactShadows
           position={[0, -1.3, 0]}
           opacity={0.2}

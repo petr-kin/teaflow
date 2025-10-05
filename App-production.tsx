@@ -111,6 +111,9 @@ function TimerScreen({ onShowLibrary, selectedTea, setSelectedTea }: { onShowLib
   const [currentSteep, setCurrentSteep] = useState(0);
   const [timerRef, setTimerRef] = useState<NodeJS.Timeout | null>(null);
 
+  // Format seconds to MM:SS display
+  const timerTime = `${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, '0')}`;
+
   return (
     <GestureHandlerRootView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -136,7 +139,7 @@ function TimerScreen({ onShowLibrary, selectedTea, setSelectedTea }: { onShowLib
             style={[styles.controlButton, { backgroundColor: theme.colors.primary }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              setTimerTime(timerTime === "2:30" ? "0:00" : "2:30");
+              setTimeLeft(timeLeft === 0 ? 150 : 0); // Toggle between 2:30 (150s) and 0:00
             }}
           >
             <Text style={styles.controlButtonText}>Start/Pause</Text>
@@ -187,19 +190,23 @@ export default function App() {
   const handleSelectTea = (tea: any) => {
     setSelectedTea(tea);
     setCurrentScreen('timer');
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Success);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   if (currentScreen === 'library') {
     return (
-      <TeaLibrary 
-        onClose={() => setCurrentScreen('timer')} 
+      <TeaLibrary
+        onClose={() => setCurrentScreen('timer')}
         onSelectTea={handleSelectTea}
       />
     );
   }
 
-  return <TimerScreen onShowLibrary={() => setCurrentScreen('library')} />;
+  return <TimerScreen
+    onShowLibrary={() => setCurrentScreen('library')}
+    selectedTea={selectedTea}
+    setSelectedTea={setSelectedTea}
+  />;
 }
 
 const styles = StyleSheet.create({

@@ -63,9 +63,8 @@ export default function QuickTeaGrid({ teas, onSelectTea, onClose }: Props) {
             onPress={() => handleTeaSelect(tea)}
           >
             <View style={styles.cardHeader}>
-              <TeaLeafIcon 
-                type={tea.type} 
-                size={24} 
+              <TeaLeafIcon
+                size={24}
                 color={theme.colors.accent}
               />
               <Text style={[styles.teaName, { color: theme.colors.text }]}>

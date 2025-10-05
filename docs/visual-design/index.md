@@ -1,0 +1,27 @@
+# TeaFlow Visual Design Guide
+
+## Table of Contents
+
+- [TeaFlow Visual Design Guide](#table-of-contents)
+  - [Design Token Implementation](./design-token-implementation.md)
+    - [Color Tokens (CSS/React Native)](./design-token-implementation.md#color-tokens-cssreact-native)
+    - [Typography Tokens](./design-token-implementation.md#typography-tokens)
+    - [Spacing Tokens](./design-token-implementation.md#spacing-tokens)
+  - [Component Specifications](./component-specifications.md)
+    - [1. Primary Button Component](./component-specifications.md#1-primary-button-component)
+    - [2. Tea Card Component](./component-specifications.md#2-tea-card-component)
+    - [3. Timer Display Component](./component-specifications.md#3-timer-display-component)
+  - [Screen Layout Specifications](./screen-layout-specifications.md)
+    - [1. Timer Screen Layout](./screen-layout-specifications.md#1-timer-screen-layout)
+    - [2. Tea Library Grid Layout](./screen-layout-specifications.md#2-tea-library-grid-layout)
+  - [Animation Specifications](./animation-specifications.md)
+    - [1. Tea Flow Easing Curves](./animation-specifications.md#1-tea-flow-easing-curves)
+    - [2. Timer Progress Animation](./animation-specifications.md#2-timer-progress-animation)
+    - [3. Button Press Animation](./animation-specifications.md#3-button-press-animation)
+  - [Gesture Implementation](./gesture-implementation.md)
+    - [1. Timer Adjustment Gestures](./gesture-implementation.md#1-timer-adjustment-gestures)
+    - [2. Swipe Navigation](./gesture-implementation.md#2-swipe-navigation)
+  - [Implementation Notes](./implementation-notes.md)
+    - [Performance Optimization](./implementation-notes.md#performance-optimization)
+    - [Accessibility](./implementation-notes.md#accessibility)
+    - [Responsive Design](./implementation-notes.md#responsive-design)

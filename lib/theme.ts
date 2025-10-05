@@ -28,43 +28,45 @@ export interface Theme {
 export const lightTheme: Theme = {
   mode: 'light',
   colors: {
-    background: '#FFFFFF',
-    surface: '#F8F9FA',
-    surfaceVariant: '#F1F3F4',
-    primary: '#2F7A55',
-    primaryVariant: '#1B5E20',
-    secondary: '#4CAF50',
-    text: '#212121',
-    textSecondary: '#757575',
-    textTertiary: '#9E9E9E',
-    accent: '#FF9800',
-    error: '#F44336',
-    warning: '#FF9800',
-    success: '#4CAF50',
-    overlay: 'rgba(0,0,0,0.5)',
+    // Tea-inspired primary colors
+    background: '#F5F5F0', // porcelain
+    surface: '#FAFAFA',    // steamWhite
+    surfaceVariant: '#F5F5F0', // porcelain variant
+    primary: '#4A6741',    // teaGreen
+    primaryVariant: '#3A5431', // darker teaGreen
+    secondary: '#B8860B',  // goldenOolong
+    text: '#2D2D2D',       // softBlack
+    textSecondary: '#6B6B6B', // clayGray
+    textTertiary: '#A8A8A8',  // mistGray
+    accent: '#D2691E',     // steepingAmber
+    error: '#D32F2F',      // errorRed
+    warning: '#D2691E',    // steepingAmber
+    success: '#4A6741',    // teaGreen
+    overlay: 'rgba(45,45,45,0.5)', // softBlack overlay
     border: '#E0E0E0',
-    shadow: 'rgba(0,0,0,0.12)',
+    shadow: 'rgba(45,45,45,0.12)', // softBlack shadow
   },
 };
 
 export const darkTheme: Theme = {
   mode: 'dark',
   colors: {
-    background: '#0F1412',
-    surface: '#1A2F23',
-    surfaceVariant: '#2D3F32',
-    primary: '#2F7A55',
-    primaryVariant: '#4CAF50',
-    secondary: '#66BB6A',
-    text: '#FFFFFF',
-    textSecondary: 'rgba(255,255,255,0.7)',
-    textTertiary: 'rgba(255,255,255,0.5)',
-    accent: '#FFB74D',
-    error: '#F44336',
-    warning: '#FF9800',
-    success: '#4CAF50',
+    // Dark tea-inspired colors for evening brewing sessions
+    background: '#1A1A1A',    // Deep tea background
+    surface: '#2D2D2D',       // Darker surface (softBlack variant)
+    surfaceVariant: '#3A3A3A', // Elevated surface
+    primary: '#4A6741',       // teaGreen (same as light for consistency)
+    primaryVariant: '#5A7751', // lighter teaGreen for dark mode
+    secondary: '#B8860B',     // goldenOolong (same as light)
+    text: '#FAFAFA',         // steamWhite
+    textSecondary: '#A8A8A8', // mistGray
+    textTertiary: '#6B6B6B',  // clayGray
+    accent: '#D2691E',       // steepingAmber
+    error: '#F56565',        // lighter errorRed for dark backgrounds
+    warning: '#D2691E',      // steepingAmber
+    success: '#4A6741',      // teaGreen
     overlay: 'rgba(0,0,0,0.8)',
-    border: 'rgba(255,255,255,0.1)',
+    border: 'rgba(168,168,168,0.2)', // mistGray transparent
     shadow: 'rgba(0,0,0,0.5)',
   },
 };

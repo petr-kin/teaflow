@@ -1,0 +1,56 @@
+{
+  "timestamp": "2025-09-11T16:58:55.789Z",
+  "platform": "darwin",
+  "nodeVersion": "v24.5.0",
+  "measurements": {
+    "web": {
+      "error": "Puppeteer not available",
+      "fallback": "Manual testing required"
+    },
+    "system": {
+      "cpu": {
+        "user": 916,
+        "system": 61,
+        "totalCores": 8
+      },
+      "memory": {
+        "rss": 49,
+        "heapUsed": 7.23,
+        "heapTotal": 11.03,
+        "external": 3.23
+      },
+      "platform": {
+        "arch": "arm64",
+        "platform": "darwin",
+        "release": "24.6.0",
+        "totalMemory": 8,
+        "freeMemory": 0.11
+      }
+    },
+    "timer": {
+      "tests": [
+        {
+          "expected": 1000,
+          "actual": 1000.23,
+          "drift": 0.23,
+          "driftPerSecond": 0.23
+        },
+        {
+          "expected": 5000,
+          "actual": 5002.92,
+          "drift": 2.92,
+          "driftPerSecond": 0.58
+        },
+        {
+          "expected": 10000,
+          "actual": 10003.7,
+          "drift": 3.7,
+          "driftPerSecond": 0.37
+        }
+      ],
+      "averageDriftPerSecond": 0.39,
+      "maxDrift": 3.7,
+      "passesRequirement": true
+    }
+  }
+}

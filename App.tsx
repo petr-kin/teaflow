@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback, memo } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Pressable, ScrollView, Alert } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { StyleSheet, Text, View, Pressable, ScrollView, Alert, AppState } from 'react-native';
+import { GestureHandlerRootView, Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { DEFAULTS } from './lib/teas';
 import { loadLastSteeps, loadUserTeas, pushLastSteep, deleteUserTea } from './lib/store';
@@ -10,15 +11,19 @@ import type { LastSteep, TeaProfile } from './lib/types';
 import HourglassGrains from './components/HourglassGrains';
 import RadialBuckets from './components/RadialBuckets';
 import GestureOverlay from './components/GestureOverlay';
+import BrewFeedbackModal from './components/BrewFeedbackModal';
+import OnboardingScreen from './components/OnboardingScreen';
+import TimerWithGestures from './components/TimerWithGestures';
+
+// Load components directly to fix white screen issue
 import CameraScreen from './components/CameraScreen';
 import TeaLibraryScreen from './components/TeaLibraryScreen';
-import BrewFeedbackModal from './components/BrewFeedbackModal';
 import CustomTeaCreator from './components/CustomTeaCreator';
+import QuickTeaGrid from './components/QuickTeaGrid';
 import ExportImportScreen from './components/ExportImportScreen';
-import TimerWithGestures from './components/TimerWithGestures';
 import AnalyticsScreen from './components/AnalyticsScreen';
-import OnboardingScreen from './components/OnboardingScreen';
 import ThemeSettingsScreen from './components/ThemeSettingsScreen';
+import KettleScreen from './components/KettleScreen';
 import { soundManager } from './lib/sounds';
 import { ThemeContext, ThemeManager, useTheme } from './lib/theme';
 import { useResponsive } from './components/ResponsiveView';
@@ -28,13 +33,62 @@ import IconButton from './components/ui/IconButton';
 import Card from './components/ui/Card';
 import TeaLogo from './components/graphics/TeaLogo';
 import BackgroundWave from './components/graphics/BackgroundWave';
+import BackgroundWaveSkia from './components/graphics/BackgroundWaveSkia';
+import HourglassSkia from './components/graphics/HourglassSkia';
+import VideoTeaVisualization from './components/graphics/VideoTeaVisualization';
+import LayeredTeaAnimation from './components/graphics/LayeredTeaAnimation';
+import { Platform } from 'react-native';
 import ResponsiveManager from './lib/responsive';
 import OfflineIndicator from './components/OfflineIndicator';
 import OfflineManager from './lib/offline';
-import KettleScreen from './components/KettleScreen';
 import BluetoothKettleManager from './lib/bluetooth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveBrewFeedback } from './lib/learning';
+import RealisticCupInterface from './components/RealisticCupInterface';
+import InteractiveBrewingInterface from './components/Interactive3D/InteractiveBrewingInterface';
+import SimpleInteractiveInterface from './components/Interactive3D/SimpleInteractiveInterface';
+// Temporarily disable 3D components that might be causing crashes
+// import Advanced3DTeaScene from './components/Advanced3D/Advanced3DTeaScene.web';
+// import Simple3DDemo from './components/Advanced3D/Simple3DDemo';
+// import CSSTeaVisualization from './components/Advanced3D/CSSTeaVisualization';
+
+// Memoized TeaCard component
+const TeaCard = memo<{ tea: any; onPress: () => void; isPhone: boolean; isTablet: boolean; spacing: (n: number) => number; fontSize: (n: number) => number; theme: any }>(({ tea, onPress, isPhone, isTablet, spacing, fontSize, theme }) => {
+  return (
+    <Pressable 
+      style={{ width: isPhone ? '48%' : isTablet ? '31%' : '23%' }}
+      onPress={onPress}
+    >
+      <Card style={{ padding: spacing(16), minHeight: isPhone ? 100 : 120 }}>
+        <Text style={[styles.teaName, { color: theme.colors.text, fontSize: fontSize(16) }]}>{tea.name}</Text>
+        <Text style={[styles.teaTemp, { color: theme.colors.textSecondary, fontSize: fontSize(14) }]}>{tea.baseTempC}°C</Text>
+        <Text style={[styles.teaSteeps, { color: theme.colors.textTertiary, fontSize: fontSize(12) }]}>{tea.baseScheduleSec.length} steeps</Text>
+      </Card>
+    </Pressable>
+  );
+});
+
+// Memoized TeaGrid component
+const TeaGrid = memo<{ tiles: any[]; userTeas: any[]; onSelectTea: (tea: any) => void; spacing: (n: number) => number; fontSize: (n: number) => number; theme: any; isPhone: boolean; isTablet: boolean }>(({ tiles, userTeas, onSelectTea, spacing, fontSize, theme, isPhone, isTablet }) => {
+  const allTeas = tiles.concat(userTeas);
+  
+  return (
+    <View style={[styles.teaGrid, { gap: spacing(12) }]}>
+      {allTeas.map((tea: any) => (
+        <TeaCard 
+          key={tea.id}
+          tea={tea} 
+          onPress={() => onSelectTea(tea)}
+          isPhone={isPhone}
+          isTablet={isTablet}
+          spacing={spacing}
+          fontSize={fontSize}
+          theme={theme}
+        />
+      ))}
+    </View>
+  );
+});
 
 function AppContent() {
   const [last, setLast] = useState<LastSteep[]>([]);
@@ -55,8 +109,13 @@ function AppContent() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showThemeSettings, setShowThemeSettings] = useState(false);
   const [showKettle, setShowKettle] = useState(false);
+  const [showQuickTeaGrid, setShowQuickTeaGrid] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [editingTea, setEditingTea] = useState<TeaProfile | null>(null);
+  
+  // Background timer state tracking
+  const backgroundStartTime = useRef<number | null>(null);
+  const appState = useRef(AppState.currentState);
   
   const theme = useTheme();
   const { isPhone, isTablet, isLandscape, spacing, fontSize } = useResponsive();
@@ -100,37 +159,232 @@ function AppContent() {
     checkOnboarding();
   }, []);
 
-  // Timer countdown with haptic feedback
+  // Load last used tea on app start
+  useEffect(() => {
+    const loadLastTea = async () => {
+      try {
+        const lastTeaId = await AsyncStorage.getItem('lastUsedTea');
+        if (lastTeaId) {
+          // Find tea in defaults first, then user teas
+          const defaultTea = Object.values(DEFAULTS).find(tea => tea.id === lastTeaId);
+          if (defaultTea) {
+            setSelectedTea(defaultTea);
+            // Load last used steep index and timer adjustments
+            const lastSteepIndex = await AsyncStorage.getItem(`lastSteepIndex_${lastTeaId}`);
+            const lastTimerAdjustment = await AsyncStorage.getItem(`timerAdjustment_${lastTeaId}`);
+            
+            if (lastSteepIndex) {
+              setCurrentSteep(parseInt(lastSteepIndex));
+            }
+            
+            const baseTime = defaultTea.baseScheduleSec[parseInt(lastSteepIndex) || 0];
+            const adjustment = lastTimerAdjustment ? parseInt(lastTimerAdjustment) : 0;
+            setTimerSeconds(baseTime + adjustment);
+          } else {
+            // Check user teas
+            const userTeasData = await AsyncStorage.getItem('userTeas');
+            if (userTeasData) {
+              const userTeas = JSON.parse(userTeasData);
+              const userTea = userTeas.find((tea: TeaProfile) => tea.id === lastTeaId);
+              if (userTea) {
+                setSelectedTea(userTea);
+                const lastSteepIndex = await AsyncStorage.getItem(`lastSteepIndex_${lastTeaId}`);
+                if (lastSteepIndex) {
+                  setCurrentSteep(parseInt(lastSteepIndex));
+                }
+                const baseTime = userTea.baseScheduleSec[parseInt(lastSteepIndex) || 0];
+                const lastTimerAdjustment = await AsyncStorage.getItem(`timerAdjustment_${lastTeaId}`);
+                const adjustment = lastTimerAdjustment ? parseInt(lastTimerAdjustment) : 0;
+                setTimerSeconds(baseTime + adjustment);
+              }
+            }
+          }
+        } else {
+          // Default to first tea if no last tea saved
+          setSelectedTea(DEFAULTS.oolong);
+          setTimerSeconds(DEFAULTS.oolong.baseScheduleSec[0]);
+        }
+      } catch (error) {
+        console.error('Error loading last tea:', error);
+        // Fallback to default tea
+        setSelectedTea(DEFAULTS.oolong);
+        setTimerSeconds(DEFAULTS.oolong.baseScheduleSec[0]);
+      }
+    };
+
+    const checkCrashRecovery = async () => {
+      try {
+        const runningTimerData = await AsyncStorage.getItem('runningTimerState');
+        if (runningTimerData) {
+          const timerState = JSON.parse(runningTimerData);
+          const { timerSeconds: savedSeconds, backgroundStartTime: savedStartTime, selectedTeaId, currentSteep: savedSteep } = timerState;
+          
+          if (savedStartTime && savedSeconds > 0) {
+            const timeElapsed = Math.floor((Date.now() - savedStartTime) / 1000);
+            const remainingTime = Math.max(0, savedSeconds - timeElapsed);
+            
+            // Find the tea that was running
+            const crashTea = Object.values(DEFAULTS).find(tea => tea.id === selectedTeaId);
+            if (crashTea) {
+              setSelectedTea(crashTea);
+              setCurrentSteep(savedSteep);
+              
+              if (remainingTime > 0) {
+                setTimerSeconds(remainingTime);
+                setIsRunning(true);
+                setShowTimer(true);
+                Alert.alert('Timer Recovered', `Your ${crashTea.name} timer was running when the app closed. Continuing with ${remainingTime} seconds remaining.`);
+              } else {
+                // Timer completed during crash
+                setTimerSeconds(0);
+                setIsRunning(false);
+                setShowTimer(true);
+                Alert.alert('Steep Complete', `Your ${crashTea.name} steep completed while the app was closed.`);
+              }
+            }
+          }
+          
+          // Clear crash recovery data
+          await AsyncStorage.removeItem('runningTimerState');
+        }
+      } catch (error) {
+        console.error('Error during crash recovery:', error);
+      }
+    };
+
+    if (onboardingChecked) {
+      loadLastTea();
+      checkCrashRecovery();
+    }
+  }, [onboardingChecked]);
+
+  // Background/foreground timer state management
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        // App came to foreground - check if timer was running in background
+        if (backgroundStartTime.current && isRunning) {
+          const timeElapsed = Math.floor((Date.now() - backgroundStartTime.current) / 1000);
+          const newTimerSeconds = Math.max(0, timerSeconds - timeElapsed);
+          
+          if (newTimerSeconds <= 0) {
+            // Timer completed while in background
+            setIsRunning(false);
+            setTimerSeconds(0);
+            handleSteepComplete();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            soundManager.playChime();
+          } else {
+            // Update timer with elapsed time
+            setTimerSeconds(newTimerSeconds);
+          }
+          
+          backgroundStartTime.current = null;
+        }
+      } else if (appState.current === 'active' && nextAppState.match(/inactive|background/)) {
+        // App going to background - save current time if timer is running
+        if (isRunning && timerSeconds > 0) {
+          backgroundStartTime.current = Date.now();
+          // Save timer state for crash recovery
+          AsyncStorage.setItem('runningTimerState', JSON.stringify({
+            timerSeconds,
+            isRunning: true,
+            backgroundStartTime: backgroundStartTime.current,
+            selectedTeaId: selectedTea?.id,
+            currentSteep
+          })).catch(console.error);
+        }
+      }
+      
+      appState.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
+  }, [isRunning, timerSeconds, selectedTea, currentSteep]);
+
+  // Optimized timer with refs to avoid excessive state updates
+  const timerRef = useRef(timerSeconds);
+  const displayTimerRef = useRef(timerSeconds);
+  
+  // Update refs when timer seconds changes from external sources
+  useEffect(() => {
+    timerRef.current = timerSeconds;
+    displayTimerRef.current = timerSeconds;
+  }, [timerSeconds]);
+
+  // High-precision timer countdown with drift correction (≤0.2s/min accuracy)
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isRunning && timerSeconds > 0) {
-      interval = setInterval(() => {
-        setTimerSeconds(prev => {
-          if (prev === 6) {
+    let animationId: number;
+    let startTime: number;
+    let expectedTime: number;
+    
+    if (isRunning && timerRef.current > 0) {
+      startTime = Date.now();
+      expectedTime = startTime + (timerRef.current * 1000);
+      
+      const tick = () => {
+        const currentTime = Date.now();
+        const remainingMs = Math.max(0, expectedTime - currentTime);
+        const remainingSec = Math.ceil(remainingMs / 1000);
+        
+        // Update timer only if seconds changed to avoid excessive updates
+        if (remainingSec !== timerRef.current) {
+          timerRef.current = remainingSec;
+          
+          if (timerRef.current === 5) {
             // T-5 warning haptic and chime
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             soundManager.playChime();
-          } else if (prev <= 1) {
+          } else if (timerRef.current <= 0) {
             setIsRunning(false);
             handleSteepComplete();
             // Completion haptic and chime
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             soundManager.playChime();
             soundManager.stopAmbient();
-            return 0;
+            timerRef.current = 0;
+            return; // Exit early to avoid scheduling next tick
           }
-          return prev - 1;
-        });
-      }, 1000);
+          
+          // Update display smoothly using requestAnimationFrame
+          animationId = requestAnimationFrame(() => {
+            setTimerSeconds(timerRef.current);
+          });
+        }
+        
+        // Schedule next tick with high precision (100ms intervals for accuracy)
+        if (timerRef.current > 0) {
+          interval = setTimeout(tick, 100);
+        }
+      };
+      
+      tick(); // Start immediately
     }
-    return () => clearInterval(interval);
-  }, [isRunning, timerSeconds]);
+    
+    return () => {
+      clearTimeout(interval);
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    };
+  }, [isRunning]);
 
-  const tiles = ['green', 'black', 'oolong', 'puerh'].map(k => (DEFAULTS as any)[k]);
+  const tiles = ['green', 'black', 'oolong', 'white', 'puerh', 'herbal'].map(k => (DEFAULTS as any)[k]);
 
-  const handleTeaSelect = async (tea: TeaProfile) => {
+  const handleTeaSelect = useCallback(async (tea: TeaProfile) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedTea(tea);
+    
+    // Save as last used tea
+    try {
+      await AsyncStorage.setItem('lastUsedTea', tea.id);
+      await AsyncStorage.setItem(`lastSteepIndex_${tea.id}`, '0');
+      await AsyncStorage.removeItem(`timerAdjustment_${tea.id}`); // Reset adjustments for new selection
+    } catch (error) {
+      console.error('Error saving last tea:', error);
+    }
     
     // Load preferences for this tea
     const prefs = await getTeaPrefs(tea.id);
@@ -140,35 +394,35 @@ function AppContent() {
     setCurrentSteep(0);
     setTimerSeconds(tea.baseScheduleSec[0]);
     setShowTimer(true);
-  };
+  }, []);
 
-  const handleTeaScanned = async (newTea: TeaProfile) => {
+  const handleTeaScanned = useCallback(async (newTea: TeaProfile) => {
     // Refresh user teas list to include the new tea
     const updatedTeas = await loadUserTeas();
     setUserTeas(updatedTeas);
     
     // Auto-select the newly scanned tea
     handleTeaSelect(newTea);
-  };
+  }, [handleTeaSelect]);
 
-  const handleTeaCreated = async (newTea: TeaProfile) => {
+  const handleTeaCreated = useCallback(async (newTea: TeaProfile) => {
     // Refresh user teas list to include the new/updated tea
     const updatedTeas = await loadUserTeas();
     setUserTeas(updatedTeas);
     
     // Auto-select the newly created/edited tea
     handleTeaSelect(newTea);
-  };
+  }, [handleTeaSelect]);
 
   const handleEditTea = (tea: TeaProfile) => {
     setEditingTea(tea);
     setShowTeaCreator(true);
   };
 
-  const handleRefreshTeas = async () => {
+  const handleRefreshTeas = useCallback(async () => {
     const updatedTeas = await loadUserTeas();
     setUserTeas(updatedTeas);
-  };
+  }, []);
 
   const handleOnboardingComplete = async () => {
     try {
@@ -180,11 +434,11 @@ function AppContent() {
     }
   };
 
-  const handleDeleteUserTea = async (teaId: string) => {
+  const handleDeleteUserTea = useCallback(async (teaId: string) => {
     await deleteUserTea(teaId);
     const updatedTeas = await loadUserTeas();
     setUserTeas(updatedTeas);
-  };
+  }, []);
 
   const handleBrewFeedback = async (strength: 'weak' | 'perfect' | 'strong', enjoyment: number) => {
     if (completedSteep) {
@@ -219,6 +473,9 @@ function AppContent() {
       setCompletedSteep({ tea: selectedTea, steepIndex: currentSteep });
       setShowFeedback(true);
       
+      // Clear timer state for crash recovery
+      AsyncStorage.removeItem('runningTimerState').catch(console.error);
+      
       Alert.alert('Steep Complete!', `Your ${selectedTea.name} steep #${currentSteep + 1} is ready!`);
     }
   };
@@ -234,6 +491,30 @@ function AppContent() {
     soundManager.stopAmbient();
     setIsRunning(false);
   };
+
+  const toggleStartPause = () => {
+    if (isRunning) {
+      pauseTimer();
+    } else {
+      startTimer();
+    }
+  };
+
+  const addTime = (seconds: number) => {
+    setTimerSeconds(prev => {
+      const newTime = Math.max(10, Math.min(600, prev + seconds));
+      
+      // Save timer adjustment
+      if (selectedTea) {
+        const baseTime = selectedTea.baseScheduleSec[currentSteep];
+        const adjustment = newTime - baseTime;
+        AsyncStorage.setItem(`timerAdjustment_${selectedTea.id}`, adjustment.toString()).catch(console.error);
+      }
+      
+      return newTime;
+    });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
   
   const nextSteep = () => {
     if (selectedTea && currentSteep < selectedTea.baseScheduleSec.length - 1) {
@@ -242,6 +523,11 @@ function AppContent() {
       setCurrentSteep(nextIndex);
       setTimerSeconds(selectedTea.baseScheduleSec[nextIndex]);
       setIsRunning(false);
+      
+      // Save current steep index
+      AsyncStorage.setItem(`lastSteepIndex_${selectedTea.id}`, nextIndex.toString()).catch(console.error);
+      // Reset timer adjustment for new steep
+      AsyncStorage.removeItem(`timerAdjustment_${selectedTea.id}`).catch(console.error);
     }
   };
 
@@ -267,6 +553,9 @@ function AppContent() {
       setTimerSeconds(selectedTea.baseScheduleSec[currentSteep]);
       soundManager.stopAmbient();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      
+      // Clear timer state for crash recovery
+      AsyncStorage.removeItem('runningTimerState').catch(console.error);
     }
   };
 
@@ -282,15 +571,33 @@ function AppContent() {
   };
 
   const skipToPrevSteep = () => {
-    if (currentSteep > 0) {
+    if (currentSteep > 0 && selectedTea) {
       setIsRunning(false);
       const prevIndex = currentSteep - 1;
       setCurrentSteep(prevIndex);
-      setTimerSeconds(selectedTea!.baseScheduleSec[prevIndex]);
+      setTimerSeconds(selectedTea.baseScheduleSec[prevIndex]);
       soundManager.stopAmbient();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      
+      // Save current steep index
+      AsyncStorage.setItem(`lastSteepIndex_${selectedTea.id}`, prevIndex.toString()).catch(console.error);
+      // Reset timer adjustment for new steep
+      AsyncStorage.removeItem(`timerAdjustment_${selectedTea.id}`).catch(console.error);
     }
   };
+
+  // Swipe down gesture to open quick tea grid
+  const swipeDownGesture = Gesture.Pan()
+    .onEnd((e) => {
+      'worklet';
+      const { velocityY, translationY } = e;
+      
+      // Detect swipe down
+      if (velocityY > 500 || translationY > 100) {
+        runOnJS(setShowQuickTeaGrid)(true);
+        runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+      }
+    });
 
   const addTimeToTimer = (seconds: number) => {
     setTimerSeconds(prev => Math.max(1, prev + seconds));
@@ -321,29 +628,54 @@ function AppContent() {
 
     return (
       <GestureHandlerRootView style={styles.container}>
-        <View style={[styles.timerContainer, { backgroundColor: theme.colors.background }]}>
-          <BackgroundWave width={360} height={140} />
-          <Pressable onPress={backToHome} style={styles.backButton}>
-            <Text style={[styles.backText, { color: theme.colors.primary }]}>← Back</Text>
-          </Pressable>
+        <GestureDetector gesture={swipeDownGesture}>
+          <View style={[
+            styles.timerContainer, 
+            { backgroundColor: theme.colors.background },
+            isRunning && { 
+              backgroundColor: theme.colors.accent + '15', // steepingAmber with 15% opacity
+              borderWidth: 2,
+              borderColor: theme.colors.accent + '40' // steepingAmber with 40% opacity
+            }
+          ]}>
+            {/* Background wave disabled to prevent crashes */}
+            <Pressable onPress={backToHome} style={styles.backButton}>
+              <Text style={[styles.backText, { color: theme.colors.primary }]}>← Back</Text>
+            </Pressable>
           
           <Text style={[styles.timerTitle, { color: theme.colors.text }]}>{selectedTea.name}</Text>
           <Text style={[styles.timerTemp, { color: theme.colors.textSecondary }]}>Vessel: {vesselMl}ml • Temp: {tempC}°C</Text>
           
           <View style={styles.hourglassContainer}>
-            {/* Background graphics */}
-            <RadialBuckets vesselMl={vesselMl} progress={progress} />
-            <HourglassGrains progress={progress} running={isRunning} />
-            
-            {/* Main Timer Display - centered and prominent */}
-            <View style={styles.mainTimerCentered}>
-              <Text style={[styles.mainTimerText, { color: theme.colors.text, fontSize: fontSize(48), textShadowColor: theme.colors.shadow }]}>
-                {Math.floor(timerSeconds / 60)}:{(timerSeconds % 60).toString().padStart(2, '0')}
-              </Text>
-              <Text style={[styles.vesselInfo, { color: theme.colors.textSecondary, fontSize: fontSize(16) }]}>
-                {vesselMl}ml • {tempC}°C
-              </Text>
-            </View>
+            {/* Story 1.2.2: Living tea metaphor animation */}
+            <LayeredTeaAnimation
+              width={220}
+              height={200}
+              temperature={tempC}
+              brewingTime={selectedTea.baseScheduleSec[currentSteep] - timerSeconds}
+              teaType={selectedTea.type}
+              isRunning={isRunning}
+              onGesture={(gestureType, value) => {
+                switch (gestureType) {
+                  case 'tap':
+                    toggleStartPause();
+                    break;
+                  case 'leftEdge':
+                    if (value) addTime(value);
+                    break;
+                  case 'rightEdge':
+                    if (value) addTime(value);
+                    break;
+                  case 'doubleTap':
+                    resetTimer();
+                    break;
+                  case 'longPress':
+                    // Optional: Show timer settings or next steep
+                    break;
+                }
+              }}
+            />
+            {/* TimerWithGestures hidden - gestures now handled by LayeredTeaAnimation */}
             
             {/* Gesture overlay for interactions */}
             <GestureOverlay 
@@ -380,7 +712,8 @@ function AppContent() {
             <Button title="-5°C" variant="secondary" size="sm" onPress={() => adjustTemp(-5)} />
             <Button title="+5°C" variant="secondary" size="sm" onPress={() => adjustTemp(5)} />
           </View>
-        </View>
+          </View>
+        </GestureDetector>
         
         <StatusBar style="light" />
       </GestureHandlerRootView>
@@ -438,26 +771,16 @@ function AppContent() {
         ))}
       </View>
 
-      <View style={[
-        styles.teaGrid, 
-        { 
-          gap: spacing(12),
-        }
-      ]}>
-        {tiles.concat(userTeas).map((tea: any) => (
-          <Pressable 
-            key={tea.id}
-            style={{ width: isPhone ? '48%' : isTablet ? '31%' : '23%' }}
-            onPress={() => handleTeaSelect(tea)}
-          >
-            <Card style={{ padding: spacing(16), minHeight: isPhone ? 100 : 120 }}>
-              <Text style={[styles.teaName, { color: theme.colors.text, fontSize: fontSize(16) }]}>{tea.name}</Text>
-              <Text style={[styles.teaTemp, { color: theme.colors.textSecondary, fontSize: fontSize(14) }]}>{tea.baseTempC}°C</Text>
-              <Text style={[styles.teaSteeps, { color: theme.colors.textTertiary, fontSize: fontSize(12) }]}>{tea.baseScheduleSec.length} steeps</Text>
-            </Card>
-          </Pressable>
-        ))}
-      </View>
+      <TeaGrid 
+        tiles={tiles}
+        userTeas={userTeas}
+        onSelectTea={handleTeaSelect}
+        spacing={spacing}
+        fontSize={fontSize}
+        theme={theme}
+        isPhone={isPhone}
+        isTablet={isTablet}
+      />
 
       <StatusBar style="light" />
       </ScrollView>
@@ -487,44 +810,52 @@ function AppContent() {
           }}
         />
       )}
+
+      {showQuickTeaGrid && (
+        <QuickTeaGrid
+          teas={tiles}
+          onSelectTea={handleTeaSelect}
+          onClose={() => setShowQuickTeaGrid(false)}
+        />
+      )}
       
       {showTeaCreator && (
-        <CustomTeaCreator
-          onClose={() => {
-            setShowTeaCreator(false);
-            setEditingTea(null);
-          }}
-          onTeaCreated={handleTeaCreated}
-          editingTea={editingTea || undefined}
-        />
+          <CustomTeaCreator
+            onClose={() => {
+              setShowTeaCreator(false);
+              setEditingTea(null);
+            }}
+            onTeaCreated={handleTeaCreated}
+            editingTea={editingTea || undefined}
+          />
       )}
       
       {showExportImport && (
-        <ExportImportScreen
-          onClose={() => setShowExportImport(false)}
-          onRefreshTeas={handleRefreshTeas}
-        />
+          <ExportImportScreen
+            onClose={() => setShowExportImport(false)}
+            onRefreshTeas={handleRefreshTeas}
+          />
       )}
       
       {showAnalytics && (
-        <AnalyticsScreen
-          onClose={() => setShowAnalytics(false)}
-          userTeas={userTeas}
-          defaultTeas={tiles}
-        />
+          <AnalyticsScreen
+            onClose={() => setShowAnalytics(false)}
+            userTeas={userTeas}
+            defaultTeas={tiles}
+          />
       )}
       
       {showThemeSettings && (
-        <ThemeSettingsScreen
-          onClose={() => setShowThemeSettings(false)}
-        />
+          <ThemeSettingsScreen
+            onClose={() => setShowThemeSettings(false)}
+          />
       )}
       
       {showKettle && (
-        <KettleScreen
-          onClose={() => setShowKettle(false)}
-          suggestedTemp={tempC}
-        />
+          <KettleScreen
+            onClose={() => setShowKettle(false)}
+            suggestedTemp={tempC}
+          />
       )}
       
       {/* Offline indicator */}
@@ -648,6 +979,7 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    background: 'linear-gradient(135deg, #1a2420, #0f1412)',
   },
   backButton: {
     position: 'absolute',
@@ -655,17 +987,14 @@ const styles = StyleSheet.create({
     left: 20,
   },
   backText: {
-    color: '#2F7A55',
     fontSize: 16,
   },
   timerTitle: {
-    color: 'white',
     fontSize: 24,
     fontWeight: '600',
     marginBottom: 8,
   },
   timerTemp: {
-    color: 'rgba(255,255,255,0.6)',
     fontSize: 16,
     marginBottom: 40,
   },
@@ -678,7 +1007,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   steepInfo: {
-    color: 'rgba(255,255,255,0.7)',
     fontSize: 16,
     marginBottom: 20,
   },
@@ -688,34 +1016,28 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   startButton: {
-    backgroundColor: '#2F7A55',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 20,
   },
   startText: {
-    color: 'white',
     fontSize: 16,
     fontWeight: '600',
   },
   pauseButton: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 20,
   },
   pauseText: {
-    color: 'white',
     fontSize: 16,
   },
   nextButton: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 20,
   },
   nextText: {
-    color: 'white',
     fontSize: 14,
   },
   adjustControls: {
@@ -725,13 +1047,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   adjustButton: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
   },
   adjustText: {
-    color: 'white',
     fontSize: 12,
   },
   loadingContainer: {
@@ -780,5 +1100,18 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
     letterSpacing: 1,
+  },
+  simpleTimer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    borderWidth: 2,
+  },
+  timerDisplay: {
+    fontSize: 48,
+    fontWeight: '200',
+    letterSpacing: 4,
   },
 });

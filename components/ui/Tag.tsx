@@ -12,7 +12,7 @@ interface Props {
 export default function Tag({ label, tone = 'primary', style, textStyle }: Props) {
   const theme = useTheme();
   const bg = tone === 'primary' ? theme.colors.primary : theme.colors.surfaceVariant;
-  const color = tone === 'primary' ? '#fff' : theme.colors.textSecondary;
+  const color = tone === 'primary' ? theme.colors.surface : theme.colors.textSecondary;
   return (
     <View style={[{ backgroundColor: bg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }, style]}>
       <Text style={[{ color, fontSize: 10, fontWeight: '600' }, textStyle]}>{label}</Text>

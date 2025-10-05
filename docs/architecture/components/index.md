@@ -1,0 +1,28 @@
+# Components
+
+## Table of Contents
+
+- [Components](#table-of-contents)
+  - [Video-Enhanced Core Components](./video-enhanced-core-components.md)
+  - [Timer Core](./timer-core.md)
+  - [Video Tea Background System](./video-tea-background-system.md)
+  - [Living Tea Metaphor Animations](./living-tea-metaphor-animations.md)
+  - [OCR Scanner](./ocr-scanner.md)
+  - [Data Persistence Manager](./data-persistence-manager.md)
+  - [Gesture Controller](./gesture-controller.md)
+  - [Zen Gesture Controller](./zen-gesture-controller.md)
+  - [Tea-Specific Learning Engine](./tea-specific-learning-engine.md)
+  - [Anticipatory Intelligence System (MISSING CRITICAL COMPONENT!)](./anticipatory-intelligence-system-missing-critical-component.md)
+  - [Premium Feature Gate System (MISSING CRITICAL COMPONENT!)](./premium-feature-gate-system-missing-critical-component.md)
+  - [Community Wisdom Platform (MISSING CRITICAL COMPONENT!)](./community-wisdom-platform-missing-critical-component.md)
+  - [Research & Testing Framework (MISSING CRITICAL SYSTEM!)](./research-testing-framework-missing-critical-system.md)
+  - [Advanced UX Systems (MISSING FROM FRONT-END SPEC!)](./advanced-ux-systems-missing-from-front-end-spec.md)
+  - [AI UI Generation Component Specifications (MISSING CRITICAL SYSTEM!)](./ai-ui-generation-component-specifications-missing-critical-system.md)
+  - [Priority Implementation Systems (MISSING FROM BRAINSTORMING!)](./priority-implementation-systems-missing-from-brainstorming.md)
+  - [Strategic Market Defense Architecture (MISSING FROM COMPETITOR ANALYSIS!)](./strategic-market-defense-architecture-missing-from-competitor-analysis.md)
+  - [Component Integration Architecture (MISSING FROM IMPLEMENTATION GUIDE!)](./component-integration-architecture-missing-from-implementation-guide.md)
+  - [Complete Video-Based Interface System (MISSING FROM VISUAL MOCKUPS!)](./complete-video-based-interface-system-missing-from-visual-mockups.md)
+  - [Living Tea Metaphor Animation System (MISSING FROM ANIMATION CONCEPT!)](./living-tea-metaphor-animation-system-missing-from-animation-concept.md)
+  - [Complete Design Token Implementation System (MISSING FROM VISUAL DESIGN!)](./complete-design-token-implementation-system-missing-from-visual-design.md)
+  - [Critical Performance & Business Metrics Architecture (MISSING FROM PRD!)](./critical-performance-business-metrics-architecture-missing-from-prd.md)
+  - [Learning Engine](./learning-engine.md)

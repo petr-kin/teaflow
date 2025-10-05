@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { TeaProfile } from '../lib/types';
@@ -9,6 +9,7 @@ import Button from './ui/Button';
 import IconButton from './ui/IconButton';
 import Tag from './ui/Tag';
 import TeaLeafIcon from './graphics/TeaLeafIcon';
+import WeatherTeaAdvisor from '../lib/weather';
 
 interface Props {
   teas: TeaProfile[];
@@ -24,6 +25,14 @@ interface Props {
 type SortOption = 'name' | 'type' | 'temperature' | 'steeps';
 type FilterType = 'all' | 'green' | 'black' | 'oolong' | 'white' | 'puerh' | 'herbal' | 'user';
 
+interface WeatherRecommendation {
+  recommendedTea: string;
+  reason: string;
+  brewingNotes: string;
+  weatherInfluence: string;
+  confidence: number;
+}
+
 export default function TeaLibraryScreen({ teas, userTeas, onClose, onSelectTea, onDeleteUserTea, onEditTea, onOpenExportImport, onOpenAnalytics }: Props) {
   const theme = useTheme();
   const { spacing, fontSize } = useResponsive();
@@ -31,8 +40,26 @@ export default function TeaLibraryScreen({ teas, userTeas, onClose, onSelectTea,
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [filterBy, setFilterBy] = useState<FilterType>('all');
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [weatherRecommendation, setWeatherRecommendation] = useState<WeatherRecommendation | null>(null);
+  const [showWeatherCard, setShowWeatherCard] = useState(false);
 
   const allTeas = useMemo(() => [...teas, ...userTeas], [teas, userTeas]);
+
+  // Load weather recommendation on mount
+  useEffect(() => {
+    const loadWeatherRecommendation = async () => {
+      try {
+        const advisor = WeatherTeaAdvisor.getInstance();
+        const userPreferences = userTeas.map(tea => tea.type);
+        const recommendation = await advisor.getWeatherBasedRecommendation(userPreferences);
+        setWeatherRecommendation(recommendation);
+      } catch (error) {
+        console.log('Failed to load weather recommendation:', error);
+      }
+    };
+    
+    loadWeatherRecommendation();
+  }, [userTeas]);
 
   const filteredAndSortedTeas = useMemo(() => {
     let filtered = allTeas;
@@ -102,7 +129,16 @@ export default function TeaLibraryScreen({ teas, userTeas, onClose, onSelectTea,
       puerh: '#8D6E63',
       herbal: '#9C27B0'
     };
-    return colors[type] || '#2F7A55';
+    return colors[type] || theme.colors.primary;
+  };
+
+  const handleWeatherTeaSelect = () => {
+    if (weatherRecommendation) {
+      const recommendedTea = allTeas.find(tea => tea.type === weatherRecommendation.recommendedTea);
+      if (recommendedTea) {
+        handleTeaPress(recommendedTea);
+      }
+    }
   };
 
   return (
@@ -119,6 +155,53 @@ export default function TeaLibraryScreen({ teas, userTeas, onClose, onSelectTea,
           </View>
         }
       />
+
+      {/* Weather Recommendation Card */}
+      {weatherRecommendation && (
+        <View style={[styles.weatherCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <View style={styles.weatherHeader}>
+            <View style={styles.weatherIcon}>
+              <Text style={styles.weatherIconText}>🌤️</Text>
+            </View>
+            <View style={styles.weatherInfo}>
+              <Text style={[styles.weatherTitle, { color: theme.colors.text }]}>Weather-Based Suggestion</Text>
+              <Text style={[styles.weatherSubtitle, { color: theme.colors.textSecondary }]}>{weatherRecommendation.reason}</Text>
+            </View>
+            <Button 
+              variant={showWeatherCard ? "ghost" : "primary"} 
+              size="sm" 
+              title={showWeatherCard ? "Hide" : "View"} 
+              onPress={() => setShowWeatherCard(!showWeatherCard)}
+            />
+          </View>
+          
+          {showWeatherCard && (
+            <View style={styles.weatherDetails}>
+              <View style={styles.recommendationRow}>
+                <View style={[styles.teaTypeIndicator, { backgroundColor: getTeaTypeColor(weatherRecommendation.recommendedTea) }]} />
+                <View style={styles.recommendationInfo}>
+                  <Text style={[styles.recommendedTeaType, { color: theme.colors.text }]}>
+                    {weatherRecommendation.recommendedTea.charAt(0).toUpperCase() + weatherRecommendation.recommendedTea.slice(1)} Tea
+                  </Text>
+                  <Text style={[styles.weatherInfluence, { color: theme.colors.textSecondary }]}>{weatherRecommendation.weatherInfluence}</Text>
+                  <Text style={[styles.brewingNotes, { color: theme.colors.textTertiary }]}>{weatherRecommendation.brewingNotes}</Text>
+                </View>
+                <View style={styles.confidenceBadge}>
+                  <Text style={[styles.confidenceText, { color: theme.colors.textSecondary }]}>
+                    {Math.round(weatherRecommendation.confidence * 100)}% match
+                  </Text>
+                </View>
+              </View>
+              <Button 
+                variant="primary" 
+                title="Select This Tea" 
+                onPress={handleWeatherTeaSelect}
+                style={{ marginTop: 12 }}
+              />
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Search */}
       <View style={[styles.searchContainer, { paddingHorizontal: spacing(20) }]}>
@@ -159,7 +242,7 @@ export default function TeaLibraryScreen({ teas, userTeas, onClose, onSelectTea,
                 style={[
                   styles.sortOptionText,
                   { color: theme.colors.textSecondary },
-                  sortBy === option && { color: '#fff', fontWeight: '600' }
+                  sortBy === option && { color: theme.colors.surface, fontWeight: '600' }
                 ]}
               >
                 {option.charAt(0).toUpperCase() + option.slice(1)}
@@ -188,7 +271,7 @@ export default function TeaLibraryScreen({ teas, userTeas, onClose, onSelectTea,
               style={[
                 styles.filterTabText,
                 { color: theme.colors.textSecondary },
-                filterBy === filter && { color: '#fff', fontWeight: '600' }
+                filterBy === filter && { color: theme.colors.surface, fontWeight: '600' }
               ]}
             >
               {filter === 'all' ? 'All' : filter === 'user' ? 'My Teas' : filter.charAt(0).toUpperCase() + filter.slice(1)}
@@ -292,7 +375,6 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   sortText: {
-    color: '#2F7A55',
     fontSize: 16,
     fontWeight: '500',
   },
@@ -428,5 +510,75 @@ const styles = StyleSheet.create({
   },
   emptySubtext: {
     fontSize: 14,
+  },
+  weatherCard: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  weatherHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  weatherIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(47, 122, 85, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  weatherIconText: {
+    fontSize: 20,
+  },
+  weatherInfo: {
+    flex: 1,
+  },
+  weatherTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  weatherSubtitle: {
+    fontSize: 14,
+  },
+  weatherDetails: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  recommendationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  recommendationInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  recommendedTeaType: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  weatherInfluence: {
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  brewingNotes: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  confidenceBadge: {
+    backgroundColor: 'rgba(47, 122, 85, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  confidenceText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Svg, { Rect, Circle, Path, G } from 'react-native-svg';
 import { View, StyleSheet } from 'react-native';
+import Animated, { useSharedValue, withRepeat, withTiming, useAnimatedProps, Easing } from 'react-native-reanimated';
 
 type Grain = { x: number; y: number; vy: number; };
 
@@ -13,6 +14,14 @@ export default function HourglassGrains({ progress = 0, running = false }: { pro
       vy: 0.8 + Math.random() * 1.2
     }))
   );
+
+  // Reanimated phase for frame-synced effects (stream flicker, micro-motion)
+  const phase = useSharedValue(0);
+
+  useEffect(() => {
+    if (!running) return; 
+    phase.value = withRepeat(withTiming(2 * Math.PI, { duration: 1600, easing: Easing.linear }), -1, false);
+  }, [running, phase]);
 
   useEffect(() => {
     if (!running) return;
@@ -32,6 +41,13 @@ export default function HourglassGrains({ progress = 0, running = false }: { pro
   }, [running, progress]);
 
   const p = Math.max(0, Math.min(1, progress));
+
+  const AnimatedG = Animated.createAnimatedComponent(G);
+  const AnimatedRect = Animated.createAnimatedComponent(Rect);
+  const streamProps = useAnimatedProps(() => {
+    const op = 0.6 + 0.35 * Math.sin(phase.value * 3.2);
+    return { opacity: op } as any;
+  });
 
   return (
     <View style={styles.container}>
@@ -70,8 +86,8 @@ export default function HourglassGrains({ progress = 0, running = false }: { pro
         
         {/* Falling sand stream - animated */}
         {running && p < 0.95 && (
-          <G opacity={Math.sin(Date.now() / 150) * 0.4 + 0.6}>
-            <Rect
+          <AnimatedG animatedProps={streamProps}>
+            <AnimatedRect
               x="108"
               y="135"
               width="4"
@@ -80,7 +96,7 @@ export default function HourglassGrains({ progress = 0, running = false }: { pro
             />
             <Circle cx="110" cy="145" r="1.5" fill="rgba(255,210,140,1)" />
             <Circle cx="110" cy="155" r="1" fill="rgba(255,210,140,0.8)" />
-          </G>
+          </AnimatedG>
         )}
         
         {/* Sand grains - more realistic positioning */}

@@ -26,7 +26,7 @@ export default function Button({ variant = 'primary', size = 'md', title, onPres
     'transparent';
 
   const color =
-    variant === 'primary' ? '#fff' : theme.colors.text;
+    variant === 'primary' ? theme.colors.surface : theme.colors.text;
 
   const border = variant === 'ghost' ? { borderWidth: 1, borderColor: theme.colors.border } : null;
 
